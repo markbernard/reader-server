@@ -1,2 +1,10 @@
 systemctl stop reader-server
 systemctl disable reader-server
+
+systemctl stop reader-updater
+systemctl disable reader-updater
+
+cd /usr/local/bin/reader-server
+
+rm -fr node_modules
+rm package-lock.json

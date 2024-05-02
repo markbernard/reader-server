@@ -11,10 +11,10 @@ INSTALL_FOLDER="/usr/local/bin/${NAME}"
 SYSTEM_FOLDER="/etc/systemd/system/"
 
 echo "Checking Node_modules"
-#npm update
+npm update
 
 echo "Building server"
-#npx tsc
+npx tsc
 echo "Server build complete"
 
 echo "Create folders"
@@ -36,6 +36,7 @@ echo "Copy files"
 cp -r ../../dist/* .$INSTALL_FOLDER
 cp ../../package.json .$INSTALL_FOLDER
 cp ../../scripts/reader-server.service .$SYSTEM_FOLDER
+cp ../../scripts/reader-updater.service .$SYSTEM_FOLDER
 
 mkdir DEBIAN > /dev/null 2>&1
 

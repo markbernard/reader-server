@@ -5,3 +5,6 @@ cd -
 
 systemctl start reader-server
 systemctl enable reader-server
+
+systemctl start reader-updater
+systemctl enable reader-updater

@@ -1,8 +1,18 @@
 import { ConnectionManager } from "./dao/connection-manager";
 import { ReaderUtil } from "./reader-util";
 
-console.log("Starting update");
-ConnectionManager.initialize();
+const UPDATE_TIME: number = 3600000; //1 hour
 
-ReaderUtil.readAllFeeds();
-console.log("Update complete.");
+function update(): void {
+  console.log("Starting update");
+  ConnectionManager.initialize();
+
+  ReaderUtil.readAllFeeds();
+  console.log("Update complete.");
+
+  setTimeout(() => {
+    update();
+  }, UPDATE_TIME);
+}
+
+update();

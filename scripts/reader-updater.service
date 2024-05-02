@@ -1,0 +1,13 @@
+[Unit]
+Description=RSS reader updater
+After=network.target
+
+[Service]
+Environment=NODE_PORT=3000
+Type=simple
+User=root
+ExecStart=/usr/bin/node /usr/local/bin/reader-server/updater.js
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -1,3 +1,4 @@
 dist/
 node_modules/
 deb/
+src/dao/dbconfig.json

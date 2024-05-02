@@ -7,7 +7,7 @@ const PREFIX: string = "/readerws";
 const app: Express = express();
 app.use(express.json());
 
-const PORT = 3000;
+const PORT = process.env.NODE_PORT || 3000;
 
 ConnectionManager.initialize();
 ConnectionManager.createTables();

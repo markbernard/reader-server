@@ -1,0 +1,2 @@
+systemctl stop reader-server
+systemctl disable reader-server

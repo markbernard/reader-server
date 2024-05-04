@@ -14,4 +14,4 @@ You can build a .deb package by cloning the repository a then run build.sh.
 If you install with the deb package 2 systemd services will be installed and started. 
 
  - reader-server.service - is the main rest server to feed data to the front end
- - reader-updater.service - runs 1 per hour to get the latest feeds for all subscriptions
+ - reader-updater.service - runs 1 update per hour to get the latest feeds for all subscriptions

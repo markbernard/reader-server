@@ -15,3 +15,5 @@ If you install with the deb package 2 systemd services will be installed and sta
 
  - reader-server.service - is the main rest server to feed data to the front end
  - reader-updater.service - runs 1 update per hour to get the latest feeds for all subscriptions
+
+The server is written in Typescript on Node JS. Installing the DEB package will install the required Node libraries.

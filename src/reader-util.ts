@@ -42,6 +42,7 @@ export class ReaderUtil {
         https.get(feedUrl, (res: IncomingMessage) => {
           if (res.statusCode != 200) {
             console.log("Could not reach: " + feedUrl);
+            console.log(res.statusCode + ": " + res.statusMessage);
             res.resume();
     
             return;
@@ -154,6 +155,7 @@ export class ReaderUtil {
     https.get(subscription.link, (res: IncomingMessage) => {
       if (res.statusCode != 200) {
         console.log("Could not reach: " + subscription.link);
+        console.log(res.statusCode + ": " + res.statusMessage);
         res.resume();
 
         return;

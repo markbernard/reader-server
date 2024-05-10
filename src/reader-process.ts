@@ -111,42 +111,14 @@ export class ReaderProcess {
               this.SUBSCRIPTION_DAO.findByFeed(feedUrl).subscribe({
                 next: (result: Subscription) => {
                   let subscription: Subscription = result;
-                  if (subscription != null) {
-                    this.createUserSubscription(subscription, readerUser, asyncSubject);
+                  if (result != null) {
+                    this.createUserSubscription(result, readerUser, asyncSubject);
                   } else {
                     if (readerUser != null) {
                       if (feedUrl.startsWith("http:")) {
                         feedUrl = feedUrl.replace("http:", "https:");
                       }
-                      let data: string = "";
-
-                      https.get(feedUrl, (res: IncomingMessage) => {
-                        if (res.statusCode != 200) {
-                          console.log("Could not reach: " + feedUrl);
-                          res.resume();
-                  
-                          asyncSubject.error("Could not load: " + feedUrl);
-                  
-                          return;
-                        }
-                  
-                        res.on("data", (chunk: string) => {
-                          data += chunk;
-                        });
-                  
-                        res.on("close", () => {
-                          const dom: JSDOM = new JSDOM(data, {contentType: "text/xml"});
-                          const rss: Element = dom.window.document.querySelector("rss");
-                          const atom: Element = dom.window.document.querySelector("feed");
-                          if (rss != null) {
-                            subscription = this.parseRss(rss, feedUrl);
-                          } else if (atom != null) {
-                            subscription = this.parseAtom(atom, feedUrl);
-                          }
-                          
-                          this.createUserSubscription(subscription, readerUser, asyncSubject);
-                        });
-                      });
+                      this.getFeed(feedUrl, readerUser, asyncSubject);
                     } else {
                       asyncSubject.error("Invalid token provided.");
                       asyncSubject.complete();
@@ -161,6 +133,45 @@ export class ReaderProcess {
     });
 
     return asyncSubject.asObservable();
+  }
+
+  getFeed(feedUrl: string, readerUser: ReaderUser, asyncSubject: AsyncSubject<Subscription>) {
+    let data: string = "";
+    https.get(feedUrl, (res: IncomingMessage) => {
+      if (res.statusCode == 301 || res.statusCode == 302) {
+        setTimeout(() => {
+          this.getFeed(res.headers.location, readerUser, asyncSubject);
+        }, 1);
+        res.resume();
+
+        return;
+      } else if (res.statusCode != 200) {
+        console.log("Could not reach: " + feedUrl);
+        res.resume();
+
+        asyncSubject.error("Could not load: " + feedUrl);
+
+        return;
+      }
+
+      res.on("data", (chunk: string) => {
+        data += chunk;
+      });
+
+      res.on("close", () => {
+        const dom: JSDOM = new JSDOM(data, {contentType: "text/xml"});
+        const rss: Element = dom.window.document.querySelector("rss");
+        const atom: Element = dom.window.document.querySelector("feed");
+        let subscription: Subscription = new Subscription();
+        if (rss != null) {
+          subscription = this.parseRss(rss, feedUrl);
+        } else if (atom != null) {
+          subscription = this.parseAtom(atom, feedUrl);
+        }
+        
+        this.createUserSubscription(subscription, readerUser, asyncSubject);
+      });
+    });
   }
 
   getEntries(suscriptionId: number, includeRead: boolean, newestFirst: boolean, pageSize: number, page: number, token: string): Observable<Array<UserSubscriptionEntryWrapper>> {

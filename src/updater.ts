@@ -1,7 +1,7 @@
 import { ConnectionManager } from "./dao/connection-manager";
 import { ReaderUtil } from "./reader-util";
 
-const UPDATE_TIME: number = 3600000; //1 hour
+const UPDATE_TIME: number = 1800000; // 1/2 an hour
 
 function update(): void {
   console.log("Starting update");

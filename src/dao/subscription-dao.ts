@@ -5,8 +5,9 @@ import { ConnectionManager } from "./connection-manager";
 export class SubscriptionDao {
   create(subscription: Subscription): Observable<Subscription> {
     const asyncSubject: AsyncSubject<Subscription> = new AsyncSubject();
-    const sql: string = "INSERT INTO subscription (title, feed, link, description, rss, favicon, faviconverified) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id";
-    const values: Array<any> = [subscription.title, subscription.feed, subscription.link, subscription.description, subscription.rss, subscription.favicon, subscription.faviconVerified];
+    const sql: string = "INSERT INTO subscription (title, feed, link, description, rss, favicon, faviconverified, lastmodified, etag, cacheexpire, excessivenotfound, nextupdate) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id";
+    const values: Array<any> = [subscription.title, subscription.feed, subscription.link, subscription.description, subscription.rss, subscription.favicon, subscription.faviconVerified, 
+      subscription.lastmodified, subscription.etag, subscription.cacheexpire, subscription.excessivenotfound, subscription.nextupdate];
 
     (ConnectionManager.client.query(sql, values) as Promise<any>).then((result: any) => {
       if (result.rowCount == 1) {
@@ -27,9 +28,10 @@ export class SubscriptionDao {
 
   update(subscription: Subscription): Observable<Subscription> {
     const asyncSubject: AsyncSubject<Subscription> = new AsyncSubject();
-    const sql: string = "UPDATE subscription SET title=$1, feed=$2, link=$3, description=$4, rss=$5, favicon=$6, faviconverified=$7 WHERE id=$8";
+    const sql: string = "UPDATE subscription SET title=$1, feed=$2, link=$3, description=$4, rss=$5, favicon=$6, faviconverified=$7, lastmodified=$8, etag=$9, cacheexpire=$10, excessivenotfound=$11, nextupdate=$12 WHERE id=$13";
     const values: Array<any> = [subscription.title, subscription.feed, subscription.link, subscription.description, subscription.rss, 
-      subscription.favicon, subscription.faviconVerified, subscription.id];
+      subscription.favicon, subscription.faviconVerified, subscription.lastmodified, subscription.etag, subscription.cacheexpire, 
+      subscription.excessivenotfound, subscription.nextupdate, subscription.id];
 
     (ConnectionManager.client.query(sql, values) as Promise<any>).then((result: any) => {
       if (result.rowCount == 1) {
@@ -56,7 +58,7 @@ export class SubscriptionDao {
       let subscription: Subscription = null;
       if (result.rowCount == 1) {
         const row: any = result.rows[0];
-        subscription = new Subscription(row.id, row.title, row.feed, row.link, row.description, row.rss, row.favicon, row.faviconVerified);
+        subscription = new Subscription(row.id, row.title, row.feed, row.link, row.description, row.rss, row.favicon, row.faviconVerified, row.lastmodified, row.etag, row.cacheexpire, row.excessivenotfound, row.nextupdate);
       }
 
       asyncSubject.next(subscription);
@@ -77,7 +79,7 @@ export class SubscriptionDao {
       const subscriptionList: Array<Subscription> = [];
       if (result.rowCount > 0) {
         result.rows.forEach((row: any) => {
-          subscriptionList.push(new Subscription(row.id, row.title, row.feed, row.link, row.description, row.rss, row.favicon, row.faviconverified))
+          subscriptionList.push(new Subscription(row.id, row.title, row.feed, row.link, row.description, row.rss, row.favicon, row.faviconverified, row.lastmodified, row.etag, row.cacheexpire, row.excessivenotfound, row.nextupdate ) );
         });
       }
 
@@ -98,7 +100,7 @@ export class SubscriptionDao {
       const subscriptionList: Array<Subscription> = [];
       if (result.rowCount > 0) {
         result.rows.forEach((row: any) => {
-          subscriptionList.push(new Subscription(row.id, row.title, row.feed, row.link, row.description, row.rss, row.favicon, row.faviconverified))
+          subscriptionList.push(new Subscription(row.id, row.title, row.feed, row.link, row.description, row.rss, row.favicon, row.faviconverified, row.lastmodified, row.etag, row.cacheexpire, row.excessivenotfound, row.nextupdate));
         });
       }
 
@@ -120,10 +122,15 @@ export class SubscriptionDao {
       + "description TEXT,"
       + "rss BOOL,"
       + "favicon TEXT,"
-      + "faviconverified BOOL"
+      + "faviconverified BOOL,"
+      + "lastmodified TEXT,"
+      + "etag TEXT,"
+      + "cacheexpire TIMESTAMP,"
+      + "excessivenotfound BOOL,"
+      + "nextupdate TIMESTAMP"
       + ")";
 
-    const asyncSubject: AsyncSubject<boolean> = new AsyncSubject<boolean>();;
+    const asyncSubject: AsyncSubject<boolean> = new AsyncSubject<boolean>();
       client.query(sql, (err: any, result: any) => {
         if (err != null) {
           asyncSubject.error(err);

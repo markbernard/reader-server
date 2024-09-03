@@ -4,7 +4,7 @@ import { ReaderUserDao } from "./dao/reader-user-dao";
 import { TokenGenerator } from "./token-generator";
 import { Subscription } from "./valueobject/subscription";
 import https from "https";
-import { IncomingMessage } from "http";
+import { IncomingHttpHeaders, IncomingMessage } from "http";
 import { JSDOM } from "jsdom";
 import { SubscriptionDao } from "./dao/subscription-dao";
 import { UserSubscriptionDao } from "./dao/user-subscription-dao";
@@ -137,7 +137,12 @@ export class ReaderProcess {
 
   getFeed(feedUrl: string, readerUser: ReaderUser, asyncSubject: AsyncSubject<Subscription>) {
     let data: string = "";
-    https.get(feedUrl, (res: IncomingMessage) => {
+    const options: any = {
+      headers: {
+        "User-Agent": ReaderUtil.USER_AGENT
+      }
+    }
+    https.get(feedUrl, options, (res: IncomingMessage) => {
       if (res.statusCode == 301 || res.statusCode == 302) {
         setTimeout(() => {
           this.getFeed(res.headers.location, readerUser, asyncSubject);
@@ -168,7 +173,29 @@ export class ReaderProcess {
         } else if (atom != null) {
           subscription = this.parseAtom(atom, feedUrl);
         }
-        
+
+        const headers: IncomingHttpHeaders = res.headers;
+        let lastModified: string = headers["last-modified"];
+        let etag: string = headers.etag;
+        let cacheControl: string = headers["cache-control"];
+        let delta: number = 3600000; // 1 hour
+        if (lastModified == undefined) {
+          lastModified = "";
+        }
+        if (etag == undefined) {
+          etag = "";
+        }
+        if (lastModified.length == 0 && etag.length == 0) {
+          delta *= 24; // 24 hours
+        }
+        if (cacheControl == undefined) {
+          cacheControl = "max-age=0";
+        }
+        subscription.lastmodified = lastModified;
+        subscription.etag = etag;
+        subscription.cacheexpire = new Date(Date.now() + (parseInt(cacheControl.split("=")[1]) * 1000) );
+        subscription.nextupdate = new Date(Date.now() + delta);
+    
         this.createUserSubscription(subscription, readerUser, asyncSubject);
       });
     });

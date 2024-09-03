@@ -1,5 +1,5 @@
 import https from "https";
-import { IncomingMessage } from "http";
+import { ClientRequest, IncomingHttpHeaders, IncomingMessage } from "http";
 import { Subscription } from "./valueobject/subscription";
 import { JSDOM } from "jsdom";
 import { SubscriptionDao } from "./dao/subscription-dao";
@@ -12,6 +12,7 @@ import { UserSubscriptionEntry } from "./valueobject/user-subscription-entry";
 import { AsyncSubject, Observable } from "rxjs";
 
 export class ReaderUtil {
+  public static readonly USER_AGENT: string = "Free Reader version 1.0";
   private static readonly SUBSCRIPTION_DAO: SubscriptionDao = new SubscriptionDao();
   private static readonly SUBSCRIPTION_ENTRY_DAO: SubscriptionEntryDao = new SubscriptionEntryDao();
   private static readonly USER_SUBSCRIPTION_DAO: UserSubscriptionDao = new UserSubscriptionDao();
@@ -21,12 +22,15 @@ export class ReaderUtil {
     this.SUBSCRIPTION_DAO.getAll().subscribe({
       next: (result: Array<Subscription>) => {
         result.forEach((subscription: Subscription) => {
-          console.log("Updating: " + subscription.title);
-          this.getFeedData(subscription);
-          if (!subscription.faviconVerified) {
-            setTimeout(() => {
-              this.checkFavorite(subscription);
-            }, 1);
+          const now: number = Date.now();
+          if (now >= subscription.nextupdate.getDate()) {
+            console.log("Updating: " + subscription.title);
+            this.getFeedData(subscription);
+            if (!subscription.faviconVerified) {
+              setTimeout(() => {
+                this.checkFavorite(subscription);
+              }, 1);
+            }
           }
         });
       }
@@ -38,9 +42,27 @@ export class ReaderUtil {
       next: (result: Array<UserSubscription>) => {
         const feedUrl = subscription.feed;
         let data: string = "";
+        const options: any = {
+          headers: {
+            "User-Agent": this.USER_AGENT
+          }
+        }
+        if (subscription.lastmodified.trim().length > 0) {
+          options.headers["If-Modified-Since"] = "" + subscription.lastmodified;
+        }
+        if (subscription.etag.trim().length > 0) {
+          options.headers["If-None-Match"] = "" + subscription.etag;
+        }
     
-        https.get(feedUrl, (res: IncomingMessage) => {
-          if (res.statusCode != 200) {
+        https.get(feedUrl, options, (res: IncomingMessage) => {
+          if (res.statusCode == 404) {
+            subscription.excessivenotfound = true;
+            console.log("Could not reach: " + feedUrl);
+            console.log(res.statusCode + ": " + res.statusMessage);
+            res.resume();
+    
+            return;
+          } else if (res.statusCode != 200) {
             console.log("Could not reach: " + feedUrl);
             console.log(res.statusCode + ": " + res.statusMessage);
             res.resume();
@@ -62,6 +84,36 @@ export class ReaderUtil {
             } else if (atom != null) {
               this.parseAtom(atom, subscription.id, result);
             }
+
+            const headers: IncomingHttpHeaders = res.headers;
+            let lastModified: string = headers["last-modified"];
+            let etag: string = headers.etag;
+            let cacheControl: string = headers["cache-control"];
+            let maxAge: number = 0;
+            let delta: number = 3600000; // 1 hour
+            if (lastModified == undefined) {
+              lastModified = "";
+            }
+            if (etag == undefined) {
+              etag = "";
+            }
+            if (lastModified.length == 0 && etag.length == 0) {
+              delta *= 24; // 24 hours
+            }
+            if (cacheControl == undefined) {
+              cacheControl = "max-age=0";
+            } else {
+              const regex: RegExp = new RegExp("max-age=(\\d+).*");
+              const regexResult: RegExpExecArray = regex.exec(cacheControl);
+              if (regexResult != null && regexResult[1] != null) {
+                maxAge = parseInt(regexResult[1]) * 1000;
+              }
+            }
+            subscription.lastmodified = lastModified;
+            subscription.etag = etag;
+            subscription.cacheexpire = new Date(Date.now() + maxAge);
+            subscription.nextupdate = new Date(Date.now() + delta);
+            this.SUBSCRIPTION_DAO.update(subscription);
           });
         });
       }

@@ -24,7 +24,7 @@ export class ReaderUtil {
         result.forEach((subscription: Subscription) => {
           const now: number = Date.now();
           if (now >= subscription.nextupdate.getDate()) {
-            console.log("Updating: " + subscription.title);
+            console.log("Updating: " + subscription.title + " (" + subscription.feed + ")");
             this.getFeedData(subscription);
             if (!subscription.faviconVerified) {
               setTimeout(() => {
@@ -55,18 +55,23 @@ export class ReaderUtil {
         }
     
         https.get(feedUrl, options, (res: IncomingMessage) => {
-          if (res.statusCode == 404) {
+          if (res.statusCode == 304) {
+            console.log("No new data for: " + feedUrl);
+            res.resume();
+
+            return;
+          } else if (res.statusCode == 404) {
             subscription.excessivenotfound = true;
             console.log("Could not reach: " + feedUrl);
             console.log(res.statusCode + ": " + res.statusMessage);
             res.resume();
-    
+
             return;
           } else if (res.statusCode != 200) {
             console.log("Could not reach: " + feedUrl);
             console.log(res.statusCode + ": " + res.statusMessage);
             res.resume();
-    
+
             return;
           }
     
@@ -75,45 +80,50 @@ export class ReaderUtil {
           });
     
           res.on("close", () => {
-            const dom: JSDOM = new JSDOM(data, {contentType: "text/xml"});
-            const rss: Element = dom.window.document.querySelector("rss");
-            const atom: Element = dom.window.document.querySelector("feed");
-    
-            if (rss != null) {
-              this.parseRss(rss, subscription.id, result);
-            } else if (atom != null) {
-              this.parseAtom(atom, subscription.id, result);
-            }
-
-            const headers: IncomingHttpHeaders = res.headers;
-            let lastModified: string = headers["last-modified"];
-            let etag: string = headers.etag;
-            let cacheControl: string = headers["cache-control"];
-            let maxAge: number = 0;
-            let delta: number = 3600000; // 1 hour
-            if (lastModified == undefined) {
-              lastModified = "";
-            }
-            if (etag == undefined) {
-              etag = "";
-            }
-            if (lastModified.length == 0 && etag.length == 0) {
-              delta *= 24; // 24 hours
-            }
-            if (cacheControl == undefined) {
-              cacheControl = "max-age=0";
-            } else {
-              const regex: RegExp = new RegExp("max-age=(\\d+).*");
-              const regexResult: RegExpExecArray = regex.exec(cacheControl);
-              if (regexResult != null && regexResult[1] != null) {
-                maxAge = parseInt(regexResult[1]) * 1000;
+            try {
+              const dom: JSDOM = new JSDOM(data, {contentType: "text/xml"});
+              const rss: Element = dom.window.document.querySelector("rss");
+              const atom: Element = dom.window.document.querySelector("feed");
+      
+              if (rss != null) {
+                this.parseRss(rss, subscription.id, result);
+              } else if (atom != null) {
+                this.parseAtom(atom, subscription.id, result);
               }
+
+              const headers: IncomingHttpHeaders = res.headers;
+              let lastModified: string = headers["last-modified"];
+              let etag: string = headers.etag;
+              let cacheControl: string = headers["cache-control"];
+              let maxAge: number = 0;
+              let delta: number = 3600000; // 1 hour
+              if (lastModified == undefined) {
+                lastModified = "";
+              }
+              if (etag == undefined) {
+                etag = "";
+              }
+              if (lastModified.length == 0 && etag.length == 0) {
+                delta *= 24; // 24 hours
+              }
+              if (cacheControl == undefined) {
+                cacheControl = "max-age=0";
+              } else {
+                const regex: RegExp = new RegExp("max-age=(\\d+).*");
+                const regexResult: RegExpExecArray = regex.exec(cacheControl);
+                if (regexResult != null && regexResult[1] != null) {
+                  maxAge = parseInt(regexResult[1]) * 1000;
+                }
+              }
+              subscription.lastmodified = lastModified;
+              subscription.etag = etag;
+              subscription.cacheexpire = new Date(Date.now() + maxAge);
+              subscription.nextupdate = new Date(Date.now() + delta);
+              this.SUBSCRIPTION_DAO.update(subscription);
+            } catch (err) {
+                console.error("Error parsing: " + subscription.feed);
+                console.error(err);
             }
-            subscription.lastmodified = lastModified;
-            subscription.etag = etag;
-            subscription.cacheexpire = new Date(Date.now() + maxAge);
-            subscription.nextupdate = new Date(Date.now() + delta);
-            this.SUBSCRIPTION_DAO.update(subscription);
           });
         });
       }
